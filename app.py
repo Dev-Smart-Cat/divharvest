@@ -1,6 +1,28 @@
+"""
+Dividend Payment Calendar — Streamlit App (v1.0)
+
+A web application that displays a monthly dividend payment calendar
+for B3 (Brazilian stock exchange) listed companies.
+
+The user selects one or more stock tickers from a preloaded list and
+the app scrapes dividend history from fundamentus.com.br to build a
+calendar table showing which months each company consistently pays dividends.
+
+Modules:
+    utils: Contains the scraping and data processing functions:
+        - get_dividend_months: Returns months with consistent dividend payments.
+        - get_sector: Returns the sector of a given stock.
+        - get_dividend_calendar: Builds the full calendar DataFrame.
+        - load_stock_options: Loads the stock list from the CSV file.
+        - render_calendar: Renders the dividend calendar in the Streamlit app.
+
+Data Source:
+    https://www.fundamentus.com.br
+"""
+
 import pandas as pd
 import streamlit as st
-from utils import get_dividend_calendar
+from utils import load_stock_options, render_calendar
 
 # headers is used to identify as a real browser when sending a HTTP request to the server,
 # the header identify the OS, browser and Mozilla/5.0 as all browser keep this for compatibility
@@ -14,45 +36,28 @@ MONTH_NAMES = {
     7:"Jul", 8:"Ago", 9:"Set", 10:"Out", 11:"Nov", 12:"Dez"
 }
 
-# Load the list with stock codes in .csv when initializing the app
-df_stocks = pd.read_csv("data/w-stock-codes.csv")
-# Display options
-options = df_stocks["Codigo/Empresa"].to_list()
+def main():
+    """Entry ponint of the Streamlit app. Renders the full UI."""
+    # Load display options and code mapping from the CSV at app startup
+    options, code_map = load_stock_options("data/empresas-b3.csv")
 
-# Mapping stock codes: "CSMG3 - Copasa MG" → "CSMG3"
-code_map = df_stocks.set_index("Codigo/Empresa")["Codigo"].to_dict()
+    st.title("📈 Calendário de Pagamento de Dividendos")
 
-# Set the application's title 
-st.title("📈 Calendário de Pagamento de Dividendos")
+    # Multiselect shows full name, internally maps to ticker code
+    selected_tickers = st.multiselect(
+        "Selecioneas ações:",
+        options=options,
+        placeholder="Ex: VALE3, BBSE3, ITUB4"
+    )
 
-# Multiselect use the loaded stock list from the CSV with the options
-selected_tickers = st.multiselect(
-    "selecione as ações:",
-    options=options,
-    placeholder="Ex: VALE3, BBSE3, ITUB4"
-)
+    if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
+        # Condition when button is pressed without stock codes selected
+        if len(selected_tickers) == 0:
+            st.warning("Selecione pelo menos um código de ação.")
+        else:
+            render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
 
-# Displays a orintation to the customer
-st.caption("Separe múltiplos códigos por vírgula.")
+main()
 
-if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
-    # Condition when the button is pressed without stock codes input
-    if len(selected_tickers) == 0:
-        st.warning("Digite pelo menos um código de ação.")
-    else:
-        with st.spinner("Buscando dados..."):
-            # Extract only the ticker code: "CSMG3 - Copasa MG" → "CSMG3"
-            ticker_list = [code_map[t] for t in selected_tickers]
-
-            # Call the function to webscrap the dividend calender
-            # and create a df with the result
-            df_result = get_dividend_calendar(
-                ticker_list, 
-                headers, 
-                MONTH_NAMES
-            )
-
-            st.success(f"{len(ticker_list)} ação(ões) processada (s).")
-            st.dataframe(df_result, use_container_width=True)
 
 # streamlit run app.py --server.port 8502
