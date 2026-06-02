@@ -9,55 +9,31 @@ the app scrapes dividend history from fundamentus.com.br to build a
 calendar table showing which months each company consistently pays dividends.
 
 Modules:
-    utils: Contains the scraping and data processing functions:
-        - get_dividend_months: Returns months with consistent dividend payments.
-        - get_sector: Returns the sector of a given stock.
-        - get_dividend_calendar: Builds the full calendar DataFrame.
-        - load_stock_options: Loads the stock list from the CSV file.
-        - render_calendar: Renders the dividend calendar in the Streamlit app.
+    utils: Contains the scraping, Supabase connection, and data processing functions.
 
 Data Source:
     https://www.fundamentus.com.br
 """
 
-import pandas as pd
 import streamlit as st
-from utils import load_stock_options, render_calendar
+from utils import *
 
-# headers is used to identify as a real browser when sending a HTTP request to the server,
-# the header identify the OS, browser and Mozilla/5.0 as all browser keep this for compatibility
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-}
+st.title("📈 Calendário de Pagamento de Dividendos")
 
-# Dictnary with the number and the respective month abbreviation
-MONTH_NAMES = {
-    1:"Jan", 2:"Fev", 3:"Mar", 4:"Abr", 5:"Mai", 6:"Jun",
-    7:"Jul", 8:"Ago", 9:"Set", 10:"Out", 11:"Nov", 12:"Dez"
-}
+options, code_map = load_stock_options_from_supabase("companies_list")
 
-def main():
-    """Entry ponint of the Streamlit app. Renders the full UI."""
-    # Load display options and code mapping from the CSV at app startup
-    options, code_map = load_stock_options("data/empresas-b3.csv")
+# Multiselect shows full name, internally maps to ticker code
+selected_tickers = st.multiselect(
+    "Selecione as ações:",
+    options=options,
+    placeholder="Ex: VALE3, BBSE3, ITUB4"
+)
 
-    st.title("📈 Calendário de Pagamento de Dividendos")
+if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
+    # Condition when button is pressed without stock codes selected
+    if len(selected_tickers) == 0:
+        st.warning("Selecione pelo menos um código de ação.")
+    else:
+        render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
 
-    # Multiselect shows full name, internally maps to ticker code
-    selected_tickers = st.multiselect(
-        "Selecioneas ações:",
-        options=options,
-        placeholder="Ex: VALE3, BBSE3, ITUB4"
-    )
-
-    if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
-        # Condition when button is pressed without stock codes selected
-        if len(selected_tickers) == 0:
-            st.warning("Selecione pelo menos um código de ação.")
-        else:
-            render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
-
-main()
-
-
-# streamlit run app.py --server.port 8502
+# streamlit run ui.py --server.port 8502

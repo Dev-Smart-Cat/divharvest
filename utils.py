@@ -3,7 +3,19 @@ import pandas as pd
 import yfinance as yf
 import streamlit as st
 from bs4 import BeautifulSoup
+from supabase import create_client, Client
 
+# headers is used to identify as a real browser when sending a HTTP request to the server,
+# the header identify the OS, browser and Mozilla/5.0 as all browser keep this for compatibility
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+}
+
+# Dictnary with the number and the respective month abbreviation
+MONTH_NAMES = {
+    1:"Jan", 2:"Fev", 3:"Mar", 4:"Abr", 5:"Mai", 6:"Jun",
+    7:"Jul", 8:"Ago", 9:"Set", 10:"Out", 11:"Nov", 12:"Dez"
+}
 
 def get_dividend_months(stock_code, headers):
     """Scrape the dividend payment history for a stock and return the months with consistent payments.
@@ -157,28 +169,8 @@ def get_dividend_calendar(ticker_list, headers, MONTH_NAMES):
 
     return pd.DataFrame(stock_rows)
 
-def load_stock_options(filepath):
-    """Load the stock list from a CSV file and return display options and a code mapping.
 
-    Args:
-        filepath (str): Relative path to the CSV file containing stock data.
-            The file must have the columns 'Codigo' and 'Codigo/Empresa'.
 
-    Return:
-        tuple: A tuple containing:
-            - options (list of str): Display labels. e.g. ["CSMG3 - Copasa MG", ...].
-            - code_map (dict): Maps display label to ticker code.
-              e.g. {"CSMG3 - Copasa MG": "CSMG3", ...}.
-    """
-
-    # Load the list with stock codes in .csv when initializing the app
-    df_stocks = pd.read_csv(filepath)
-    # Display options
-    options = df_stocks["Codigo/Empresa"].tolist()
-    # Mapping stock codes: "CSMG3 - Copasa MG" → "CSMG3"
-    code_map = df_stocks.set_index("Codigo/Empresa")["Codigo"].to_dict()
-    # Return a list and a dictionary
-    return options, code_map
 
 def render_calendar(selected_tickers, headers, code_map, month_list):
     """Scrape dividend data for selected tickers and render the calendar in the Streamlit app.
@@ -211,3 +203,42 @@ def render_calendar(selected_tickers, headers, code_map, month_list):
     st.success(f"{len(ticker_list)} ação(ões) processada(s).")
     
     st.dataframe(df_result, use_container_width=True)
+
+def get_supabase_client() -> Client:
+    """Create and return a Supabase client from Streamlit secrets."""
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_PUBLISHABLE_KEY"]
+    return create_client(url, key)
+
+def load_stock_options_from_supabase(table_name: str = "companies_list"):
+    """Load display options and code map from Supabase table.
+    
+    Args: 
+        table_name (str): name of the Supabase table containing the stock list.
+
+    Return:
+        tuple: A tuple containing:
+        - options (list or dict): Display labels from the column codigo_empresa.
+        - code_map (dict): Maps display label to ticker code.
+    """
+    supabase = get_supabase_client()
+
+    # Get the response from Supabase with the table companies_list
+    respose = (
+        supabase
+        .table(table_name)
+        .select("codigo,codigo_empresa")
+        .order("codigo")
+        .execute()
+    )
+
+    # Assign the response to a variable 
+    rows = respose.data or []
+    # Condition to confirm when the response is empty from the database
+    if not rows:
+        return[], {}
+    
+    options = [row["codigo_empresa"] for row in rows]                   # List compreension to append the ticker and codes into a list
+    code_map = {row["codigo_empresa"]: row["codigo"] for row in rows}   # Append into a dictionary ticker and code: code
+    
+    return options, code_map

@@ -1,3 +1,12 @@
 # Ignoring virtual environment
 .venv/
 __pycache__/
+
+# Ignoring notebooks using for testing funções and methods.
+notebook/
+
+# Ignoring env vars
+.env
+
+# Ignoring secrets
+.streamlit/
