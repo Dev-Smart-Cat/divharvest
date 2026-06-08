@@ -18,7 +18,16 @@ Data Source:
 import streamlit as st
 from utils import *
 
-st.title("📈 Calendário de Pagamento de Dividendos")
+st.title("🌾📈 divharvest - Calendário de Pagamento de Dividendos")
+
+st.info("""
+📌 Notas importantes ao usuário:
+
+- O calendário mostra apenas meses em que houve recorrência de pagamento de dividendos por pelo menos 4 ocorrências. 
+- O resultado reflete pagamentos observados antes da data da consulta; isso não garante que a empresa pagará dividendos nos mesmos meses no futuro.
+- Este calendário deve ser utilizado como referência de previsibilidade.
+- Além disso, o investidor deve consultar a data-com / data-ex para confirmar a data de compra necessária para ter direito aos próximos proventos.
+""")
 
 options, code_map = load_stock_options_from_supabase("companies_list")
 
@@ -34,6 +43,34 @@ if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
     if len(selected_tickers) == 0:
         st.warning("Selecione pelo menos um código de ação.")
     else:
-        render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
+        with st.spinner("Buscando dados..."):
+            df_result = render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
 
-# streamlit run ui.py --server.port 8502
+        non_recurrent_companies = companies_without_recurrence(df_result, MONTH_NAMES)
+
+        if non_recurrent_companies:
+            if len(non_recurrent_companies) == 1:
+                st.warning(
+                    f"Atenção: a(s) empresa(s) {non_recurrent_companies[0]} não teve/tiveram "
+                    f" pagamento(s) recorrente(s) no mesmo mês por pelo menos 4 ocorrências."
+                )
+            else:
+                companies_txt = ", ".join(non_recurrent_companies)
+                st.warning(
+                    f"Atenção: a empresa {companies_txt} não teve"
+                    f"pagamento recorrente no mesmo mês por pelo menos 4 ocorrências."
+                )
+
+        st.success(f"{len(selected_tickers)} ação(ões) processadas(s).")
+        st.table(df_result)
+
+"""
+next steps:
+1. set the page name, instead of "streamlit"
+2. set a simbol on the page
+3. put a comment in all code lines
+4. fix the load session, anytime a company is selected, the current calendar goes and reload a new one
+5. check the  "Notas importantes ao usuário:" if there is no typo
+"""
+
+# streamlit run app.py --server.port 8502

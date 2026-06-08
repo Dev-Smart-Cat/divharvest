@@ -11,9 +11,11 @@
 
 At this stage, the application includes the dividend calendar. In future releases, it will include features ranging from beginner-friendly investor analysis to deeper fundamental analysis, such as evaluating company financial results.
 
-### 📊 Methodology: Luiz Barsi
+### 📊 Methodology:
 
 This project follows the investment philosophy of **Luiz Barsi**, known as the "Dividend King", focusing on companies with a **consistent** dividend payment history.
+
+The methodology used in this application is aimed at investors who seek monthly passive income and want to analyze companies that pay consistent dividends, as well as identify the months in which the selected companies usually distribute dividends. This helps investors make better portfolio decisions about which companies are most suitable to hold. The app also confirms each company's sector, which is a key factor for many investors when deciding whether to buy a specific stock.
 
 **Selection Criteria:**
 - Only months in which the company paid dividends **5 times or more** over the years are displayed in the calendar
