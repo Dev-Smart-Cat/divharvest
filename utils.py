@@ -5,17 +5,20 @@ import streamlit as st
 from bs4 import BeautifulSoup
 from supabase import create_client, Client
 
-# headers is used to identify as a real browser when sending a HTTP request to the server,
+# headers is used to identify as a real browser when sending an HTTP request to the server,
 # the header identify the OS, browser and Mozilla/5.0 as all browser keep this for compatibility
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 }
 
-# Dictnary with the number and the respective month abbreviation
+# Dictionary with the number and the respective month abbreviation
 MONTH_NAMES = {
     1:"Jan", 2:"Fev", 3:"Mar", 4:"Abr", 5:"Mai", 6:"Jun",
     7:"Jul", 8:"Ago", 9:"Set", 10:"Out", 11:"Nov", 12:"Dez"
 }
+
+# Number of dividend paid occurrences on the same month
+MIN_REPEATED_OCCURENCIES = 4
 
 def get_dividend_months(stock_code, headers):
     """Scrape the dividend payment history for a stock and return the months with consistent payments.
@@ -30,24 +33,21 @@ def get_dividend_months(stock_code, headers):
             Must contain a valid "User-Agent" key.
 
     Return:
-        set: A set of integers representing the months (1-12) in which the stock
-            has paid dividends at least 5 times historically.
-            Returns an empty set if no dividend history table is found.
+        set: Months (1-12) in which the stock paid dividends with at least
+        MIN_REPEATED_OCCURENCIES occurrences in history.
+        Returns an empty set if no dividend history table is found.
     """
     # url to access the dividend history adding the stock code
     div_url = f"https://www.fundamentus.com.br/proventos.php?papel={stock_code}&tipo=2"
-
     # Make the HTTP request to the server using the url and the human identifier (User-Agent) 
     stock_response = requests.get(div_url, headers=headers)
-
-    # Parse (analyse) the HTML response/text into a structured object, 
-    # making it possible to search and extract the dividend paymente date using HTML tags (e.g. <table>, <td>)
+    # Parse (analyse) the HTML response/text into a structured object,
+    # making it possible to search and extract the dividend payment date using HTML tags (e.g. <table>, <td>)
     stock_soup = BeautifulSoup(stock_response.text, "html.parser")
 
     # Search for content using the tag <table>, 
     # since the dividends history is in a table
     stock_table = stock_soup.find("table")
-
     # Condition to confirm when there is dividend history available
     if stock_table is None:
         return set()            # Create an empty set
@@ -58,7 +58,6 @@ def get_dividend_months(stock_code, headers):
 
     # List to append the dividends payment dates
     payment_dates_list = []
-
     # Iterate over all columns to find all table data (td)
     for row in div_payment_info_rows:
         cols = row.find_all("td")
@@ -70,19 +69,27 @@ def get_dividend_months(stock_code, headers):
     
     # Create a df with the payment dates
     df_div_pay_dates = pd.DataFrame(payment_dates_list)
+    if df_div_pay_dates.empty:
+        return set()
 
     # Convert date to datetime
     df_div_pay_dates["PAY DATE"] = pd.to_datetime(df_div_pay_dates["PAY DATE"], format="%d/%m/%Y", errors="coerce")
 
-    # Add month colun
+    # Add month column
     df_div_pay_dates["Month"] = df_div_pay_dates["PAY DATE"].dt.month
 
-    # Count the month dividend paied month frequency
-    div_pay_frequency = df_div_pay_dates.groupby("Month").size().reset_index(name="MONTH COUNTER")
+    # Count the month dividend paid month frequency
+    div_pay_frequency = (
+        df_div_pay_dates
+        .dropna(subset=["Month"])
+        .groupby("Month")
+        .size()
+        .reset_index(name="MONTH COUNTER")
+    )
 
     # Filter only the months which the payment frequency is >= 5 times,
     # set: creates a set with the values filtered {}
-    return set(div_pay_frequency[div_pay_frequency["MONTH COUNTER"] >= 5]["Month"].tolist())
+    return set(div_pay_frequency[div_pay_frequency["MONTH COUNTER"] >= MIN_REPEATED_OCCURENCIES]["Month"].tolist())
 
 
 def get_sector(stock_code, headers):
@@ -104,11 +111,11 @@ def get_sector(stock_code, headers):
     # Get the company's sector
     url_det = f"https://www.fundamentus.com.br/detalhes.php?papel={stock_code}"
 
-    # Get the response from the page where the company's sectior is located
+    # Get the response from the page where the company's sector is located
     sector_response = requests.get(url_det, headers=headers)
 
     # Parse (analyse) the HTML response/text into a structured object,
-    # making it possible to seach and extract the company's sector using HTML tags (e.g. <table>, <td>)
+    # making it possible to search and extract the company's sector using HTML tags (e.g. <table>, <td>)
     soup_comp_sector = BeautifulSoup(sector_response.text, "html.parser")
 
     # Iterate over the soup and find all table data to extract the company's sector
@@ -153,15 +160,15 @@ def get_dividend_calendar(ticker_list, headers, MONTH_NAMES):
         sector = get_sector(stock_code, headers)
         div_pay_frequency_max = get_dividend_months(stock_code, headers)
 
-        # Dictonary with the stock code and the extracted sector
+        # Dictionary with the stock code and the extracted sector
         stock_code_sector = {"STOCK CODE": stock_code, "SECTOR": sector}
 
         # Iterate over the dictionary with the mon_num: mon_name
         for num, name in MONTH_NAMES.items():
             # Anytime a number is found on the df div_pay_frequency_max
-            # fills out the row with simbol "R$" 
+            # fills out the row with symbol 🌾
             if num in div_pay_frequency_max:
-                stock_code_sector[name] = "R$"
+                stock_code_sector[name] = "🌾"
             # Otherwise leave it blank
             else:
                 stock_code_sector[name] = ""
@@ -170,39 +177,29 @@ def get_dividend_calendar(ticker_list, headers, MONTH_NAMES):
     return pd.DataFrame(stock_rows)
 
 
-
-
 def render_calendar(selected_tickers, headers, code_map, month_list):
-    """Scrape dividend data for selected tickers and render the calendar in the Streamlit app.
+    """
+    Build the dividend calendar DataFrame for the selected tickers.
 
-    Extracts the ticker codes from the selected display labels using the code map,
-    calls get_dividend_calendar to build the result DataFrame, and renders
-    a success message and the calendar table directly in the Streamlit interface.
+    Extracts the ticker codes from the selected display labels using the code map
+    and builds the dividend calendar DataFrame.
 
     Args:
         selected_tickers (list of str): Display labels selected by the user in the multiselect.
-            e.g. ["CSMG3 - Copasa MG", "VALE3 - Vale S.A."].
         headers (dict): HTTP request headers used to simulate a browser request.
-            Must contain a valid "User-Agent" key.
         code_map (dict): Maps display label to ticker code.
-            e.g. {"CSMG3 - Copasa MG": "CSMG3"}.
         month_list (dict): A dictionary mapping month numbers to abbreviated month names.
-            e.g. {1: "Jan", 2: "Fev", ..., 12: "Dez"}.
 
     Return:
-        None: Renders the result directly in the Streamlit app.
+        pandas.DataFrame: The dividend calendar for the selected companies.
     """
     # Extract only the ticker codes from the display labels
     ticker_list = [code_map[t] for t in selected_tickers]
+    # Get the dividend calendar based on the companies selected
+    df_result = get_dividend_calendar(ticker_list, headers, month_list)
 
-    # Show spinner only while scraping is in progress
-    with st.spinner("Buscando dados..."):
-        df_result = get_dividend_calendar(ticker_list, headers, month_list)
+    return df_result
 
-    # Render success message and calendar table after spinner closes
-    st.success(f"{len(ticker_list)} ação(ões) processada(s).")
-    
-    st.dataframe(df_result, use_container_width=True)
 
 def get_supabase_client() -> Client:
     """Create and return a Supabase client from Streamlit secrets."""
@@ -224,7 +221,7 @@ def load_stock_options_from_supabase(table_name: str = "companies_list"):
     supabase = get_supabase_client()
 
     # Get the response from Supabase with the table companies_list
-    respose = (
+    response = (
         supabase
         .table(table_name)
         .select("codigo,codigo_empresa")
@@ -233,12 +230,47 @@ def load_stock_options_from_supabase(table_name: str = "companies_list"):
     )
 
     # Assign the response to a variable 
-    rows = respose.data or []
+    rows = response.data or []
     # Condition to confirm when the response is empty from the database
     if not rows:
         return[], {}
     
-    options = [row["codigo_empresa"] for row in rows]                   # List compreension to append the ticker and codes into a list
+    options = [row["codigo_empresa"] for row in rows]                   # List comprehension to append the ticker and codes into a list
     code_map = {row["codigo_empresa"]: row["codigo"] for row in rows}   # Append into a dictionary ticker and code: code
     
     return options, code_map
+
+def companies_without_recurrence(df_result, month_list, stock_code_column="STOCK CODE"):
+    """Return companies with no recurring dividend month in the generated calendar.
+
+    A company is considered non-recurring when none of its month columns
+    contains the marker 🌾 in the calendar output.
+
+    Args:
+        df_result (pandas.DataFrame): Calendar DataFrame returned by get_dividend_calendar.
+        month_list (dict): Dictionary mapping month numbers to month names used as columns.
+            Example: {1: "Jan", 2: "Fev", ..., 12: "Dez"}.
+        stock_code_column (str): Column name containing the stock ticker code.
+            Default: "STOCK CODE".
+
+    Return:
+        list[str]: List of stock codes that did not match the recurrence rule
+        (i.e., no month marked as 🌾).
+    """
+    # Condition to confirm if the calendar is empty
+    if df_result is None or df_result.empty:
+        # Return empty list
+        return []
+    
+    # Get the values (Jan, Fev, Mar) from the month dict and convert to list,
+    # which will be the column name on the dividend calendar  
+    month_columns = list(month_list.values())
+
+    recurring_mask = df_result[month_columns].eq("🌾")
+
+    return df_result.loc[~recurring_mask.any(axis=1), stock_code_column].tolist()
+
+"""
+next steps:
+6. display a graph with the dividend yield
+"""
