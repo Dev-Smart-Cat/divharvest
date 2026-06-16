@@ -16,9 +16,17 @@ Data Source:
 """
 
 import streamlit as st
+import pandas as pd
 from utils import *
 
-st.title("🌾📈 divharvest - Calendário de Pagamento de Dividendos")
+# Set the simbol and page title on browser tab
+st.set_page_config(
+    page_title="Dividend Harvest",
+    page_icon="🌾💰",
+    layout="wide"
+)
+
+st.title("🌾💰📈 Dividend Harvest - Calendário de Pagamento de Dividendos")
 
 st.info("""
 📌 Notas importantes ao usuário:
@@ -29,7 +37,14 @@ st.info("""
 - Além disso, o investidor deve consultar a data-com / data-ex para confirmar a data de compra necessária para ter direito aos próximos proventos.
 """)
 
+# Call the function to load the companies list stored in the Supabase database
 options, code_map = load_stock_options_from_supabase("companies_list")
+
+# Initialize session state to persist the calendar across reruns.
+# if guard make sure the calendar session state is None (without calendar),
+# as soon as the application is initialized and it is possible to load a new calendar
+if "df_calendar" not in st.session_state:
+    st.session_state.df_calendar = None
 
 # Multiselect shows full name, internally maps to ticker code
 selected_tickers = st.multiselect(
@@ -38,16 +53,48 @@ selected_tickers = st.multiselect(
     placeholder="Ex: VALE3, BBSE3, ITUB4"
 )
 
-if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
+# Set up button positions horizontally to generate the calendar and another one to clear the calendar
+col1, col2 = st.columns([1, 1])
+with col1:
+    generate_btn = st.button("🔍 Gerar Calendário de Pagamento de Dividendos.")
+with col2:
+    clear_btn = st.button("🗑️ Limpar Calendário")
+
+# Clear button resets the session state calendar
+if clear_btn:
+    st.session_state.df_calendar = None     # Clear the stored DataFrame
+    st.rerun()                              # Runs the full script 
+
+if generate_btn:
     # Condition when button is pressed without stock codes selected
     if len(selected_tickers) == 0:
         st.warning("Selecione pelo menos um código de ação.")
     else:
         with st.spinner("Buscando dados..."):
-            df_result = render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)
+            df_new = render_calendar(selected_tickers, headers, code_map, MONTH_NAMES)  # Call the function to create the dividend calendar
 
-        non_recurrent_companies = companies_without_recurrence(df_result, MONTH_NAMES)
+        # Merge new results with existing calendar, avoiding duplicate stock codes
+        # if guard to confirm when the calendar already exists, merge new companies into it
+        if st.session_state.df_calendar is not None:
+            # Convert the current session stock codes to a list,
+            # and store them to a variable 
+            existing_codes = st.session_state.df_calendar["STOCK CODE"].tolist()
+            # Create a new DataFrame by filtering the new stock codes selected,
+            # and when they are not in the current calendar avoiding duplicate stock codes
+            df_new_filtered = df_new[~df_new["STOCK CODE"].isin(existing_codes)]
+            st.session_state.df_calendar = pd.concat(               # Concatenate the existing calendar DataFrame with the new DataFrame containing the current the codes selected 
+                [st.session_state.df_calendar, df_new_filtered],
+                ignore_index=True
+            )
+        else:
+            st.session_state.df_calendar = df_new       # Generate a new calendar when the session state has no calendar (None)
 
+        # Call the function to mark the companies that had 0
+        # or the dividend payment occurrence does not match the standard period of >= 4
+        non_recurrent_companies = companies_without_recurrence(df_new, MONTH_NAMES)
+
+        # Condition to display a message when there is 1 or more companies without
+        # dividend payment occurrence
         if non_recurrent_companies:
             if len(non_recurrent_companies) == 1:
                 st.warning(
@@ -57,20 +104,16 @@ if st.button("🔍 Gerar Calendário de Pagamento de Dividendos."):
             else:
                 companies_txt = ", ".join(non_recurrent_companies)
                 st.warning(
-                    f"Atenção: a empresa {companies_txt} não teve"
+                    f"Atenção: as empresas {companies_txt} não tiveram "
                     f"pagamento recorrente no mesmo mês por pelo menos 4 ocorrências."
                 )
 
-        st.success(f"{len(selected_tickers)} ação(ões) processadas(s).")
-        st.table(df_result)
-
-"""
-next steps:
-1. set the page name, instead of "streamlit"
-2. set a simbol on the page
-3. put a comment in all code lines
-4. fix the load session, anytime a company is selected, the current calendar goes and reload a new one
-5. check the  "Notas importantes ao usuário:" if there is no typo
-"""
+# Display the calendar if it exists in session state
+if st.session_state.df_calendar is not None:
+    st.success(f"{len(st.session_state.df_calendar)} ação(ões) no calendário.")     # Display a success message with the total number of companies in the calendar
+    # Render the accumulated DataFrame as a static table.
+    # st.session_state.df_calendar: anytime the user interacts with any widget,
+    # holds the accumulated Dataframe (not a local variable).
+    st.table(st.session_state.df_calendar)  
 
 # streamlit run app.py --server.port 8502

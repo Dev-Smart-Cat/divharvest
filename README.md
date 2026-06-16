@@ -1,4 +1,4 @@
-# 🌾 divharvest — B3 Dividend Payment Calendar
+# 🌾 Dividend Harvest — B3 Dividend Payment Calendar
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/streamlit-1.0%2B-red)](https://streamlit.io/)
@@ -7,7 +7,7 @@
 
 ## About the Project
 
-**divharvest** is a Streamlit web app that lets you explore the dividend payment calendar of companies listed on B3 (Brazilian Stock Exchange).
+**Dividend Harvest** is a Streamlit web app that lets you explore the dividend payment calendar of companies listed on B3 (Brazilian Stock Exchange).
 
 At this stage, the application includes the dividend calendar. In future releases, it will include features ranging from beginner-friendly investor analysis to deeper fundamental analysis, such as evaluating company financial results.
 
@@ -18,7 +18,7 @@ This project follows the investment philosophy of **Luiz Barsi**, known as the "
 The methodology used in this application is aimed at investors who seek monthly passive income and want to analyze companies that pay consistent dividends, as well as identify the months in which the selected companies usually distribute dividends. This helps investors make better portfolio decisions about which companies are most suitable to hold. The app also confirms each company's sector, which is a key factor for many investors when deciding whether to buy a specific stock.
 
 **Selection Criteria:**
-- Only months in which the company paid dividends **5 times or more** over the years are displayed in the calendar
+- Only months in which the company paid dividends **4 times or more** over the years are displayed in the calendar
 - This reinforces a **predictable and reliable** dividend distribution pattern
 - It is ideal for **long-term investors** seeking passive income
 
