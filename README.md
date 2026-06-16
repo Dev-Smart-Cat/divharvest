@@ -9,6 +9,10 @@
 
 **Dividend Harvest** is a Streamlit web app that lets you explore the dividend payment calendar of companies listed on B3 (Brazilian Stock Exchange).
 
+## 🎬 App Demo
+
+![Dividend Harvest Demo](video/divhaverst.gif)
+
 At this stage, the application includes the dividend calendar. In future releases, it will include features ranging from beginner-friendly investor analysis to deeper fundamental analysis, such as evaluating company financial results.
 
 ### 📊 Methodology:
