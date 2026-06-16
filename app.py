@@ -91,7 +91,7 @@ if generate_btn:
 
         # Call the function to mark the companies that had 0
         # or the dividend payment occurrence does not match the standard period of >= 4
-        non_recurrent_companies = companies_without_recurrence(df_new, "STOCK CODE", MONTH_NAMES)
+        non_recurrent_companies = companies_without_recurrence(df_new, MONTH_NAMES)
 
         # Condition to display a message when there is 1 or more companies without
         # dividend payment occurrence
