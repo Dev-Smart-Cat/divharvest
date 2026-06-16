@@ -114,6 +114,6 @@ if st.session_state.df_calendar is not None:
     # Render the accumulated DataFrame as a static table.
     # st.session_state.df_calendar: anytime the user interacts with any widget,
     # holds the accumulated Dataframe (not a local variable).
-    st.table(st.session_state.df_calendar)  
+    st.table(st.session_state.df_calendar)
 
 # streamlit run app.py --server.port 8502

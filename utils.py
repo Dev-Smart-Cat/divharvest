@@ -186,8 +186,11 @@ def render_calendar(selected_tickers, headers, code_map, month_list):
 
     Args:
         selected_tickers (list of str): Display labels selected by the user in the multiselect.
+
         headers (dict): HTTP request headers used to simulate a browser request.
+
         code_map (dict): Maps display label to ticker code.
+        
         month_list (dict): A dictionary mapping month numbers to abbreviated month names.
 
     Return:
@@ -248,8 +251,10 @@ def companies_without_recurrence(df_result, month_list, stock_code_column="STOCK
 
     Args:
         df_result (pandas.DataFrame): Calendar DataFrame returned by get_dividend_calendar.
+
         month_list (dict): Dictionary mapping month numbers to month names used as columns.
             Example: {1: "Jan", 2: "Fev", ..., 12: "Dez"}.
+        
         stock_code_column (str): Column name containing the stock ticker code.
             Default: "STOCK CODE".
 
